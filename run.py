@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import re
 import unicodedata
 import graphyte
 
@@ -10,37 +11,42 @@ from bs4 import BeautifulSoup
 
 logging.getLogger().setLevel(logging.INFO)
 
-BASE_URL = 'https://yandex.ru/'
+BASE_URL = 'https://steamdb.info/graph/'
 
-CURRENCIES = {
-    'USD': 'usd',
-    'EUR': 'euro',
-    'USD MOEX': 'usd',
-    'EUR MOEX': 'euro',
-    'Нефть': 'oil'
+GAMES = {
+    'Dota 2': 'dota',
+    'Counter-Strike: Global Offensive': 'csgo',
+    "PLAYERUNKNOWN'S BATTLEGROUNDS": 'pubg',
+    'Grand Theft Auto V': 'gta',
+    'Terraria': 'terraria'
 }
 
-def parse_yandex_page(page):
-    currency_blocks = page.findAll('div', {'class': 'inline-stocks__item'})
+
+def parse_steamdb_page(page):
+    game_rows = page.findAll('tr', {'class': 'app'})
 
     currencies = []
-    for block in currency_blocks:
-        currency_utf8 = block.find('a', {'class': 'home-link'}).text
-        currency = unicodedata.normalize("NFKD", currency_utf8)
-        value = float(block.find('span', {
-            'class': 'inline-stocks__value_inner'
-        }).text.replace(',', '.'))
+    for row in game_rows:
+        game_utf8 = row.findAll('a')[1].text
+        game = unicodedata.normalize("NFKD", game_utf8)
+        if game not in GAMES:
+            continue
+        curr_players = int(row.find('td', {
+            'class': 'data-sort'
+        })['data-sort'])
 
-        currencies.append((CURRENCIES[currency], value))
+        currencies.append((GAMES[game], curr_players))
     return currencies
 
 
 GRAPHITE_HOST = 'graphite'
 
-def send_metrics(currencies):
-    sender = graphyte.Sender(GRAPHITE_HOST, prefix='currencies')
-    for currency in currencies:
-        sender.send(currency[0], currency[1])
+
+def send_metrics(games):
+    sender = graphyte.Sender(GRAPHITE_HOST, prefix='games')
+    for game in games:
+        sender.send(game[0], game[1])
+
 
 def main():
 
@@ -49,18 +55,19 @@ def main():
         desired_capabilities={'browserName': 'chrome', 'javascriptEnabled': True}
     )
 
-    driver.get('https://yandex.ru')
-    time.sleep(5)
+    driver.get('https://steamdb.info/graph/')
+    time.sleep(10)
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
 
-    metric = parse_yandex_page(soup)
+    metric = parse_steamdb_page(soup)
     send_metrics(metric)
 
     driver.quit()
 
     logging.info('Accessed %s ..', BASE_URL)
     logging.info('Page title: %s', driver.title)
+
 
 if __name__ == '__main__':
     main()
