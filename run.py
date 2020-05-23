@@ -25,18 +25,16 @@ GAMES = {
 def parse_steamdb_page(page):
     game_rows = page.findAll('tr', {'class': 'app'})
 
-    currencies = []
+    games = []
     for row in game_rows:
         game_utf8 = row.findAll('a')[1].text
         game = unicodedata.normalize("NFKD", game_utf8)
         if game not in GAMES:
             continue
-        curr_players = int(row.find('td', {
-            'class': 'data-sort'
-        })['data-sort'])
+        curr_players = int(row.findAll('td')[4]['data-sort'])
 
-        currencies.append((GAMES[game], curr_players))
-    return currencies
+        games.append((GAMES[game], curr_players))
+    return games
 
 
 GRAPHITE_HOST = 'graphite'
