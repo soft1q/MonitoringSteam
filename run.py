@@ -64,7 +64,7 @@ def main():
     driver.quit()
 
     logging.info('Accessed %s ..', BASE_URL)
-    logging.info('Page title: %s', driver.title)
+    logging.info('Metrics sent: %s', str(metric))
 
 
 if __name__ == '__main__':
